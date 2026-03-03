@@ -33,19 +33,31 @@ jobs:
           WORKER_DIR="$(pwd)/../gmail-bills"
           mkdir -p "$WORKER_DIR/bootstrap" "$WORKER_DIR/app/pipeline" "$WORKER_DIR/app/domain" "$WORKER_DIR/data/input"
 
-          cat > "$WORKER_DIR/bootstrap/bootstrap_adapter.py" <<'PY'
-          from typing import Dict, Any, Callable
+            cat > "$WORKER_DIR/bootstrap/bootstrap_adapter.py" <<'PY'
+            from typing import Dict, Any, Callable
 
-          def run_phase(phase_name: str, context: Dict[str, Any]) -> Dict[str, Any]:
+            def run_phase(phase_name: str, context: Dict[str, Any]) -> Dict[str, Any]:
               from app.pipeline import phase_01_ingest, phase_06_generate_schedule
-              PHASE_MAP: Dict[str, Callable] = {
-                  "ingest": phase_01_ingest.run,
-                  "schedule": phase_06_generate_schedule.run,
+
+              phase_map: Dict[str, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
+                "ingest": phase_01_ingest.run,
+                "schedule": phase_06_generate_schedule.run,
               }
-              if phase_name not in PHASE_MAP:
-                  raise ValueError(f"Unknown phase: {phase_name}")
-              return PHASE_MAP[phase_name](context)
-          PY
+
+              if phase_name in phase_map:
+                return phase_map[phase_name](context)
+
+              # Deterministic no-op for phases not implemented in the CI fixture.
+              # This allows the bootstrap to execute the full phase list declared
+              # in workers/gmail_bill_intelligence/worker.yaml without external repos.
+              return {
+                "success": True,
+                "outputs": [],
+                "evidence": [],
+                "metadata": {"fixture_noop": True, "phase": phase_name},
+                "message": f"(fixture) Skipped phase: {phase_name}",
+              }
+            PY
 
           cat > "$WORKER_DIR/app/pipeline/phase_01_ingest.py" <<'PY'
           import json
