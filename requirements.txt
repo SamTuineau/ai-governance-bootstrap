@@ -1,0 +1,7 @@
+# Bootstrap Runtime Dependencies
+
+# YAML parsing for worker configurations
+PyYAML>=6.0
+
+# No other dependencies required for core bootstrap runtime
+# Workers manage their own dependencies

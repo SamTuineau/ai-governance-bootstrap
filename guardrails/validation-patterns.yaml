@@ -1,0 +1,68 @@
+version: 1
+purpose: "Reusable, stack-neutral validation patterns used by doctor checks and verification"
+notes:
+	- "Patterns define *what* to validate and *how to decide success*, not a mandated toolchain."
+	- "Projects parameterize patterns using their project profile and system manifest."
+
+patterns:
+	- pattern_id: PAT-001-service-reachable
+		description: "Validate that a service or target is reachable via an agreed-upon probe."
+		detection_strategy:
+			- "Identify target endpoints/addresses from the system manifest (do not guess)."
+			- "Attempt a non-destructive probe that does not mutate state."
+			- "Record response metadata (e.g., status, latency, error class) as evidence."
+		success_criteria:
+			- "Probe succeeds within the project-defined timeout."
+			- "Response matches manifest expectations (if defined)."
+		failure_handling_expectations:
+			- "Stop and report evidence (probe output/error)."
+			- "Suggest next diagnostic steps; do not apply changes without confirmation."
+
+	- pattern_id: PAT-002-dependency-installed
+		description: "Validate that a required dependency or capability is available."
+		detection_strategy:
+			- "Determine required dependency from repository signals or manifest."
+			- "Check availability using a read-only method (e.g., command existence, import/resolve check, file presence)."
+			- "Avoid installing or updating dependencies during validation."
+		success_criteria:
+			- "Dependency is detected and meets any declared minimum version (if specified in repo/manifest)."
+		failure_handling_expectations:
+			- "Report missing dependency with evidence."
+			- "Propose remediation steps; require explicit approval before any installation."
+
+	- pattern_id: PAT-003-configuration-valid
+		description: "Validate that required configuration exists and is syntactically valid."
+		detection_strategy:
+			- "Locate configuration files/variables referenced by docs, CI, or manifest."
+			- "Check presence; if a parser/validator exists in-repo, run it in read-only mode."
+			- "If no parser exists, perform minimal validation (e.g., file readable, non-empty, well-formed per declared format)."
+		success_criteria:
+			- "All required config is present."
+			- "Config passes available validation/parsing checks."
+		failure_handling_expectations:
+			- "Do not proceed with actions that depend on missing/invalid config."
+			- "Record exactly what is missing/invalid and where it was expected."
+
+	- pattern_id: PAT-004-endpoint-responding
+		description: "Validate that a declared endpoint responds to a non-destructive request."
+		detection_strategy:
+			- "Read endpoint definitions from the system manifest."
+			- "Send an allowed request type defined by the project (default: a safe read-only probe)."
+			- "Capture status and response headers/body shape if permitted."
+		success_criteria:
+			- "Endpoint responds with an expected status class or declared contract."
+		failure_handling_expectations:
+			- "Provide evidence and stop; do not retry indefinitely."
+			- "Suggest diagnostics rather than making speculative code changes."
+
+	- pattern_id: PAT-005-command-executable
+		description: "Validate that a declared command can be executed in the current environment."
+		detection_strategy:
+			- "Determine the command from repo automation signals or system manifest."
+			- "Run a non-destructive form of the command when possible (help/version/dry-run)."
+			- "Capture output and exit code as evidence."
+		success_criteria:
+			- "Command resolves and executes successfully (exit code indicates success)."
+		failure_handling_expectations:
+			- "Record exit code and output; stop further dependent actions."
+			- "Propose environment fixes without performing them automatically."

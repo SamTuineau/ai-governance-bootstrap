@@ -1,0 +1,40 @@
+version: 1
+purpose: "Universal, stack-agnostic agent governance guardrails"
+portability_note: "This file is intended to be vendored into a project's .governance/guardrails/ directory; do not rely on repository-relative paths."
+
+rules:
+	environment:
+		- rule_id: ENV-001
+			description: "Verify runtime readiness before attempting any change or verification step."
+			enforcement_reason: "Prevents acting on missing prerequisites; enforces LAW 1 (Reality Before Action)."
+			expected_agent_behavior: "Run doctor checks based on detected project signals; if readiness cannot be established, stop and report missing prerequisites with evidence."
+		- rule_id: ENV-002
+			description: "Verify required configuration presence before running commands or claiming completion."
+			enforcement_reason: "Avoids false failures and unsafe defaults; supports LAW 3 (Evidence-Based Completion)."
+			expected_agent_behavior: "Identify required config from repo signals/manifest; check presence of config files/variables; record evidence and do not proceed if required config is missing."
+
+	change_management:
+		- rule_id: CHG-001
+			description: "Require an intent summary and expected impact before executing any change."
+			enforcement_reason: "Ensures observable, reviewable change; enforces LAW 2 (Observable Change)."
+			expected_agent_behavior: "State intent, scope boundaries, and expected impact; confirm that bootstrap or task rules allow the change; then proceed with a visible diff."
+		- rule_id: CHG-002
+			description: "Block destructive operations (delete, overwrite, irreversible migrations) without explicit confirmation."
+			enforcement_reason: "Prevents accidental loss; enforces safety and reviewability."
+			expected_agent_behavior: "Detect destructive intent; stop and ask for explicit confirmation describing what will be removed/overwritten and how to recover; proceed only after confirmation."
+
+	verification:
+		- rule_id: VER-001
+			description: "Require evidence before declaring tasks complete."
+			enforcement_reason: "Prevents premature closure; enforces LAW 3 (Evidence-Based Completion)."
+			expected_agent_behavior: "Provide evidence artifacts (outputs, checks, validations) supporting the completion claim; if evidence cannot be produced, mark the task as not fully verified and explain why."
+
+	safety:
+		- rule_id: SAF-001
+			description: "Prevent silent deletions."
+			enforcement_reason: "Deletion is irreversible; silent deletions violate LAW 2 and increase risk."
+			expected_agent_behavior: "Never delete without announcing intent and expected impact; prefer move-to-quarantine patterns when appropriate; require confirmation for deletions."
+		- rule_id: SAF-002
+			description: "Require diff visibility for all file modifications."
+			enforcement_reason: "Hidden changes are not reviewable; violates LAW 2."
+			expected_agent_behavior: "Perform changes via explicit patches; summarize the diff scope; avoid bulk edits without clear boundaries."

@@ -1,0 +1,26 @@
+worker:
+  name: gmail_bill_intelligence
+  description: Gmail invoice extraction and bill scheduling worker
+
+location:
+  # Relative to the bootstrap repo root.
+  # This is resolved by ai-governance-bootstrap at runtime and must not be absolute.
+  path: ../gmail-bills
+
+execution:
+  adapter_module: bootstrap.bootstrap_adapter
+  language: python
+
+phases:
+  - ingest
+  - classify
+  - parse_attachments
+  - extract
+  - persist
+  - schedule
+  - alerts
+
+governance:
+  dry_run_supported: true
+  evidence_required: true
+  deterministic: true

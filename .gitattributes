@@ -1,0 +1,16 @@
+# Normalize line endings for cross-platform consistency
+* text=auto
+
+# Keep shell scripts LF for Linux/macOS
+*.sh text eol=lf
+
+# Keep PowerShell scripts CRLF for Windows ergonomics
+*.ps1 text eol=crlf
+
+# Source/docs (LF)
+*.py text eol=lf
+*.md text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.json text eol=lf
+*.toml text eol=lf

@@ -1,0 +1,384 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/ai-governance-bootstrap/runtime/bootstrap-manifest.schema.json",
+  "title": "Governance Bootstrap Manifest Schemas",
+  "description": "Machine-readable schemas for governed project artifacts: .governance/project-profile.json and .governance/system-manifest.json. Stack-neutral by design.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["project_profile", "system_manifest"],
+  "properties": {
+    "project_profile": {
+      "$ref": "#/$defs/projectProfile"
+    },
+    "system_manifest": {
+      "$ref": "#/$defs/systemManifest"
+    }
+  },
+  "$defs": {
+    "isoTimestamp": {
+      "type": "string",
+      "description": "ISO-8601 timestamp (recommended UTC).",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+    },
+    "confidence": {
+      "type": "string",
+      "enum": ["high", "medium", "low"]
+    },
+    "pathString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "stringArray": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+
+    "governanceVersionRecord": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Represents the content copied from governance-version.json. The schema is intentionally permissive to preserve forward compatibility.",
+      "required": ["governance_name", "version"],
+      "properties": {
+        "governance_name": {"type": "string"},
+        "version": {"type": "string"},
+        "bootstrap_protocol": {"type": "string"},
+        "compatibility": {"type": "string"},
+        "breaking_changes": {"type": "boolean"},
+        "description": {"type": "string"},
+        "last_updated": {"type": "string"}
+      }
+    },
+
+    "projectProfile": {
+      "title": ".governance/project-profile.json",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "generated_at",
+        "repo_root",
+        "signals",
+        "detections",
+        "constraints",
+        "unknowns",
+        "evidence"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "description": "Schema version of project-profile.json (not governance version)."
+        },
+        "generated_at": {"$ref": "#/$defs/isoTimestamp"},
+        "repo_root": {"type": "string"},
+
+        "signals": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["readme_paths", "policy_paths", "monorepo"],
+          "properties": {
+            "readme_paths": {
+              "type": "array",
+              "items": {"$ref": "#/$defs/pathString"}
+            },
+            "policy_paths": {
+              "type": "array",
+              "items": {"$ref": "#/$defs/pathString"}
+            },
+            "monorepo": {"type": "boolean"}
+          }
+        },
+
+        "detections": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["languages", "dependency_managers", "ci", "containers", "runtime_clues"],
+          "properties": {
+            "languages": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": true,
+                "required": ["name", "confidence", "evidence_paths"],
+                "properties": {
+                  "name": {"type": "string"},
+                  "confidence": {"$ref": "#/$defs/confidence"},
+                  "evidence_paths": {
+                    "type": "array",
+                    "items": {"$ref": "#/$defs/pathString"}
+                  }
+                }
+              }
+            },
+
+            "dependency_managers": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": true,
+                "required": ["name", "manifest_paths", "lock_paths"],
+                "properties": {
+                  "name": {"type": "string"},
+                  "manifest_paths": {
+                    "type": "array",
+                    "items": {"$ref": "#/$defs/pathString"}
+                  },
+                  "lock_paths": {
+                    "type": "array",
+                    "items": {"$ref": "#/$defs/pathString"}
+                  }
+                }
+              }
+            },
+
+            "ci": {
+              "type": "object",
+              "additionalProperties": true,
+              "required": ["present", "definition_paths"],
+              "properties": {
+                "present": {"type": "boolean"},
+                "definition_paths": {
+                  "type": "array",
+                  "items": {"$ref": "#/$defs/pathString"}
+                }
+              }
+            },
+
+            "containers": {
+              "type": "object",
+              "additionalProperties": true,
+              "required": ["present", "definition_paths"],
+              "properties": {
+                "present": {"type": "boolean"},
+                "definition_paths": {
+                  "type": "array",
+                  "items": {"$ref": "#/$defs/pathString"}
+                }
+              }
+            },
+
+            "runtime_clues": {
+              "type": "object",
+              "additionalProperties": true,
+              "required": ["version_pin_paths", "env_template_paths", "automation_paths"],
+              "properties": {
+                "version_pin_paths": {
+                  "type": "array",
+                  "items": {"$ref": "#/$defs/pathString"}
+                },
+                "env_template_paths": {
+                  "type": "array",
+                  "items": {"$ref": "#/$defs/pathString"}
+                },
+                "automation_paths": {
+                  "type": "array",
+                  "items": {"$ref": "#/$defs/pathString"}
+                }
+              }
+            }
+          }
+        },
+
+        "constraints": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["protected_paths", "required_confirmations", "notes"],
+          "properties": {
+            "protected_paths": {
+              "type": "array",
+              "items": {"$ref": "#/$defs/pathString"}
+            },
+            "required_confirmations": {
+              "type": "array",
+              "items": {"type": "string"}
+            },
+            "notes": {
+              "type": "array",
+              "items": {"type": "string"}
+            }
+          }
+        },
+
+        "unknowns": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": ["type", "path", "observed", "observed_at"],
+            "properties": {
+              "type": {"type": "string"},
+              "path": {"$ref": "#/$defs/pathString"},
+              "observed": {"type": "boolean"},
+              "observed_at": {"$ref": "#/$defs/isoTimestamp"}
+            }
+          }
+        }
+      }
+    },
+
+    "systemManifest": {
+      "title": ".governance/system-manifest.json",
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Stack-neutral manifest. The schema allows extensions while requiring bootstrap minimums.",
+      "required": [
+        "schema_version",
+        "generated_at",
+        "governance_version",
+        "project_identity",
+        "detections",
+        "entrypoints",
+        "automation_signals",
+        "verification_hooks",
+        "constraints",
+        "unknowns"
+      ],
+      "properties": {
+        "schema_version": {"type": "string"},
+        "generated_at": {"$ref": "#/$defs/isoTimestamp"},
+
+        "governance_version": {
+          "$ref": "#/$defs/governanceVersionRecord",
+          "description": "The governance version record copied from ../governance-version.json."
+        },
+
+        "project_identity": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["name", "repo_root"],
+          "properties": {
+            "name": {"type": "string"},
+            "repo_root": {"type": "string"}
+          }
+        },
+
+        "detections": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "May include any detected languages, dependency managers, CI, container signals, and runtime clues; must be derived from project-profile.json.",
+          "properties": {
+            "languages": {"$ref": "#/$defs/stringArray"},
+            "dependency_managers": {"$ref": "#/$defs/stringArray"},
+            "ci_definition_paths": {
+              "type": "array",
+              "items": {"$ref": "#/$defs/pathString"}
+            },
+            "container_definition_paths": {
+              "type": "array",
+              "items": {"$ref": "#/$defs/pathString"}
+            }
+          }
+        },
+
+        "entrypoints": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Known entrypoints and interfaces discovered from repo signals (docs, CI, scripts). Must be empty rather than invented when unknown.",
+          "required": ["paths", "commands", "interfaces"],
+          "properties": {
+            "paths": {
+              "type": "array",
+              "items": {"$ref": "#/$defs/pathString"}
+            },
+            "commands": {
+              "type": "array",
+              "items": {"type": "string"}
+            },
+            "interfaces": {
+              "type": "array",
+              "items": {"type": "string"},
+              "description": "Stack-neutral interface identifiers (e.g., 'http-api', 'cli', 'worker-queue') as discovered, not prescribed."
+            },
+            "evidence_paths": {
+              "type": "array",
+              "items": {"$ref": "#/$defs/pathString"}
+            }
+          }
+        },
+
+        "automation_signals": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["ci_present", "automation_paths"],
+          "properties": {
+            "ci_present": {"type": "boolean"},
+            "automation_paths": {
+              "type": "array",
+              "items": {"$ref": "#/$defs/pathString"}
+            }
+          }
+        },
+
+        "verification_hooks": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Declares how to run doctor checks and any existing test/validation commands discovered. Must not invent commands absent repo signals.",
+          "required": ["doctor_checks"],
+          "properties": {
+            "doctor_checks": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": true,
+                "required": ["id", "pattern_id", "description"],
+                "properties": {
+                  "id": {"type": "string"},
+                  "pattern_id": {"type": "string"},
+                  "description": {"type": "string"},
+                  "inputs": {"type": ["object", "string", "null"]},
+                  "success_criteria_notes": {"type": "string"}
+                }
+              }
+            },
+            "commands": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": true,
+                "required": ["name", "command", "evidence_basis"],
+                "properties": {
+                  "name": {"type": "string"},
+                  "command": {"type": "string"},
+                  "working_directory": {"type": "string"},
+                  "mode": {
+                    "type": "string",
+                    "enum": ["help", "version", "dry_run", "normal"]
+                  },
+                  "evidence_basis": {
+                    "type": "string",
+                    "description": "Where the command was discovered (e.g., path to README/CI file/script)."
+                  }
+                }
+              }
+            }
+          }
+        },
+
+        "constraints": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["protected_paths", "notes"],
+          "properties": {
+            "protected_paths": {
+              "type": "array",
+              "items": {"$ref": "#/$defs/pathString"}
+            },
+            "notes": {
+              "type": "array",
+              "items": {"type": "string"}
+            }
+          }
+        },
+
+        "unknowns": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    }
+  }
+}

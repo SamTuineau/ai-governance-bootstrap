@@ -1,0 +1,57 @@
+%% Governance Runtime Architecture (Stack-Neutral)
+%% Version linkage: governance version is sourced from ../governance-version.json and recorded in .governance/governance-version.json
+
+flowchart TB
+  subgraph GL[Governance Layer (Authoritative)]
+    CONST[Constitution\nAI_ENGINEERING_CONSTITUTION.md\n(LAW 1..7)]
+    GR[Guardrails\nbaseline-rules.yaml\n(rule_id enforcement)]
+    VP[Validation Patterns\nvalidation-patterns.yaml\n(PAT-001..PAT-005)]
+    LEARN[Learning Lifecycle\nlessons-schema.md + governance-update-protocol.md\n(Controlled Evolution)]
+  end
+
+  subgraph RL[Runtime Layer (Behavioral Model)]
+    SS[Session Start\n(session-start.md load sequence)]
+    LC[Lifecycle\nInterrogate → Validate → Plan → Execute → Verify → Learn]
+    REF[Refusal Path\n(cite law/rule_id + required evidence/confirmation)]
+    EVD[Evidence Flow\n(.governance/evidence/* append-only)]
+  end
+
+  subgraph EL[Execution Layer (Future Implementation)]
+    BOOT[One-Button Bootstrap Runner\n(executes Bootstrap Phases 0..7 deterministically)]
+    CHECKS[Doctor Checks Runner\n(implements patterns, records evidence)]
+  end
+
+  subgraph GP[Governed Project Repository]
+    GOVDIR[.governance/\n(project-profile.json, system-manifest.json, status.md)]
+    GOVVER[.governance/governance-version.json\n(recorded governance version)]
+    GOVGR[.governance/guardrails/*\n(vendored baseline + patterns)]
+    GOVL[.governance/learning/*\n(incidents + proposals)]
+    GOVEV[.governance/evidence/*\n(evidence.jsonl)]
+  end
+
+  %% Authority flows
+  CONST --> RL
+  GR --> RL
+  VP --> RL
+  LEARN --> RL
+
+  %% Runtime-to-project flows
+  SS --> GOVDIR
+  LC --> GOVDIR
+  EVD --> GOVEV
+  REF --> GOVDIR
+  LEARN --> GOVL
+
+  %% Execution runner uses runtime model and writes governed artifacts
+  BOOT --> SS
+  BOOT --> GOVDIR
+  BOOT --> GOVVER
+  BOOT --> GOVGR
+  BOOT --> GOVL
+  BOOT --> GOVEV
+
+  CHECKS --> VP
+  CHECKS --> GOVEV
+
+  %% Lifecycle loop (normative wording)
+  LC -->|Interrogate| LC
