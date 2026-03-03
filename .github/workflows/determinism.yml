@@ -2,6 +2,8 @@ name: Determinism Check
 
 on:
   push:
+    branches:
+      - main
   pull_request:
 
 jobs:
@@ -9,37 +11,140 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout bootstrap
-        uses: actions/checkout@v4
-        with:
-          path: ai-governance-bootstrap
-
-      # This worker repo is required because workers/gmail_bill_intelligence/worker.yaml
-      # resolves to ../gmail-bills from within the bootstrap repo.
-      #
-      # If the worker repo name differs, change `repository:` accordingly.
-      # For private repos, you must add a PAT as a secret (e.g. WORKER_REPO_TOKEN)
-      # with read access to that repo.
-      - name: Checkout gmail-bills worker
-        uses: actions/checkout@v4
-        with:
-          repository: SamTuineau/gmail-bills
-          path: gmail-bills
-          token: ${{ secrets.WORKER_REPO_TOKEN }}
+      - uses: actions/checkout@v4
 
       - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 
-      - name: Install bootstrap (editable)
-        working-directory: ai-governance-bootstrap
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e .
+          pip install -r requirements.lock.txt
+          pip install -e .
+
+      - name: Create local worker fixture (no external checkout)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The registered worker resolves to ../gmail-bills.
+          # Create a minimal deterministic fixture at that location for CI.
+          WORKER_DIR="$(pwd)/../gmail-bills"
+          mkdir -p "$WORKER_DIR/bootstrap" "$WORKER_DIR/app/pipeline" "$WORKER_DIR/app/domain" "$WORKER_DIR/data/input"
+
+          cat > "$WORKER_DIR/bootstrap/bootstrap_adapter.py" <<'PY'
+          from typing import Dict, Any, Callable
+
+          def run_phase(phase_name: str, context: Dict[str, Any]) -> Dict[str, Any]:
+              from app.pipeline import phase_01_ingest, phase_06_generate_schedule
+              PHASE_MAP: Dict[str, Callable] = {
+                  "ingest": phase_01_ingest.run,
+                  "schedule": phase_06_generate_schedule.run,
+              }
+              if phase_name not in PHASE_MAP:
+                  raise ValueError(f"Unknown phase: {phase_name}")
+              return PHASE_MAP[phase_name](context)
+          PY
+
+          cat > "$WORKER_DIR/app/pipeline/phase_01_ingest.py" <<'PY'
+          import json
+          from pathlib import Path
+          from typing import Dict, Any
+
+          def run(context: Dict[str, Any]) -> Dict[str, Any]:
+              resolve_worker_path = getattr(context, "resolve_worker_path", None)
+              if not callable(resolve_worker_path):
+                  raise ValueError("Context missing resolve_worker_path()")
+
+              worker_root = Path(resolve_worker_path(scope="worker"))
+              runtime_root = Path(resolve_worker_path())
+              input_file = worker_root / "data" / "input" / "mock_emails.json"
+
+              emails = json.loads(input_file.read_text(encoding="utf-8"))
+              emails = sorted(emails, key=lambda x: (x["due_date"], x["vendor"]))
+              context["state"]["mock_emails"] = emails
+
+              raw_emails_dir = runtime_root / "data" / "raw_emails"
+              return {
+                  "success": True,
+                  "outputs": [str(raw_emails_dir)],
+                  "evidence": [],
+                  "metadata": {"emails_scanned": len(emails)},
+                  "message": f"Ingested {len(emails)} emails",
+              }
+          PY
+
+          cat > "$WORKER_DIR/app/pipeline/phase_06_generate_schedule.py" <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          from typing import Dict, Any, List
+
+          def _stable_hash_json(obj: Any) -> str:
+              content = json.dumps(obj, indent=2, ensure_ascii=False, sort_keys=True)
+              return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+          def run(context: Dict[str, Any]) -> Dict[str, Any]:
+              resolve_worker_path = getattr(context, "resolve_worker_path", None)
+              if not callable(resolve_worker_path):
+                  raise ValueError("Context missing resolve_worker_path()")
+
+              runtime_root = Path(resolve_worker_path())
+              emails: List[Dict[str, Any]] = context.get("state", {}).get("mock_emails", [])
+              if not emails:
+                  raise ValueError("No emails in context state")
+
+              # Deterministic schedule content
+              lines = ["# Bill Schedule\n", "## All Bills\n"]
+              for e in sorted(emails, key=lambda x: (x["due_date"], x["vendor"])):
+                  lines.append(f"**Vendor:** {e['vendor']}  ")
+                  lines.append(f"**Amount:** ${float(e['amount']):.2f}  ")
+                  lines.append(f"**Due:** {e['due_date']}  ")
+                  lines.append("\n")
+              schedule_content = "\n".join(lines)
+              schedule_hash = hashlib.sha256(schedule_content.encode("utf-8")).hexdigest()
+
+              # Deterministic ledger hash derived from the same data
+              ledger_obj = [
+                  {"vendor": e["vendor"], "amount": float(e["amount"]), "due_date": e["due_date"]}
+                  for e in sorted(emails, key=lambda x: (x["due_date"], x["vendor"]))
+              ]
+              ledger_hash = _stable_hash_json(ledger_obj)
+
+              schedule_path = runtime_root / "reports" / "bills_schedule.md"
+              ledger_path = runtime_root / "data" / "ledger" / "bill_ledger.json"
+
+              return {
+                  "success": True,
+                  "outputs": [str(schedule_path), str(ledger_path)],
+                  "evidence": [],
+                  "metadata": {
+                      "output_hash": schedule_hash,
+                      "schedule_hash": schedule_hash,
+                      "ledger_hash": ledger_hash,
+                  },
+                  "message": "Generated schedule",
+              }
+          PY
+
+          cat > "$WORKER_DIR/app/pipeline/__init__.py" <<'PY'
+          # pipeline package
+          PY
+
+          cat > "$WORKER_DIR/app/__init__.py" <<'PY'
+          # app package
+          PY
+
+          cat > "$WORKER_DIR/data/input/mock_emails.json" <<'JSON'
+          [
+            {"message_id": "msg001", "vendor": "Vendor A", "amount": 150.0, "due_date": "2026-03-05"},
+            {"message_id": "msg002", "vendor": "Vendor B", "amount": 200.0, "due_date": "2026-03-12"},
+            {"message_id": "msg003", "vendor": "Vendor C", "amount": 75.0, "due_date": "2026-03-20"}
+          ]
+          JSON
 
       - name: Run doctor + selftest
-        working-directory: ai-governance-bootstrap
         env:
           WORKER_RUNTIME_DIR: ${{ runner.temp }}/worker-runtime
           BOOTSTRAP_GOVERNANCE_DIR: ${{ runner.temp }}/bootstrap-governance
