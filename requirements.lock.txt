@@ -1,3 +1,2 @@
-# Editable Git install with no remote (ai-governance-bootstrap==1.0.0)
--e c:\users\stu9560\onedrive\visualstudioscripts\ai-governance-bootstrap
+# Locked third-party dependencies (do not include the local project path).
 PyYAML==6.0.3
